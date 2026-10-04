@@ -6,11 +6,11 @@
 
 **A light, simple and beautiful autoclicker for macOS, with a neutral glassmorphism UI.**
 
-[![Release](https://img.shields.io/github/v/release/hollyenah/robot-clic?style=for-the-badge&label=release&color=white&labelColor=1c1e24)](https://github.com/hollyenah/robot-clic/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/hollyenah/robot-clic/total?style=for-the-badge&color=white&labelColor=1c1e24)](https://github.com/hollyenah/robot-clic/releases)
+[![Release](https://img.shields.io/github/v/release/hollyenah/robot-clic?style=for-the-badge&label=release&color=white&labelColor=DC493A)](https://github.com/hollyenah/robot-clic/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/hollyenah/robot-clic/total?style=for-the-badge&color=white&labelColor=57A773)](https://github.com/hollyenah/robot-clic/releases)
 [![macOS](https://img.shields.io/badge/macOS-10.15%2B-white?style=for-the-badge&logo=apple&logoColor=white&labelColor=1c1e24)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-SwiftUI-white?style=for-the-badge&logo=swift&logoColor=white&labelColor=1c1e24)](#build-from-source)
-[![Donate](https://img.shields.io/badge/Donate-%E2%9D%A4-white?style=for-the-badge&labelColor=1c1e24)](https://linktr.ee/Hollyenah)
+[![Donate](https://img.shields.io/badge/Donate-%E2%9D%A4-white?style=for-the-badge&labelColor=9BC53D)](https://linktr.ee/Hollyenah)
 [![License](https://img.shields.io/badge/license-GPLv3-white?style=for-the-badge&labelColor=1c1e24)](LICENSE)
 
 </div>
@@ -100,7 +100,7 @@ robot-clic/
 
 If Robot-clic saves you time, you can support its development:
 
-[![Donate](https://img.shields.io/badge/Donate-%E2%9D%A4-white?style=for-the-badge&labelColor=1c1e24)](https://YOUR-DONATION-LINK-HERE)
+[![Donate](https://img.shields.io/badge/Donate-%E2%9D%A4-white?style=for-the-badge&labelColor=1c1e24)](https://[YOUR-DONATION-LINK-HERE](https://linktr.ee/Hollyenah))
 
 ## License
 
