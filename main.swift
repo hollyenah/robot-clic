@@ -1,7 +1,9 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Aides compatibles macOS 10.15
+let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.1"
+
+// MARK: - Helpers (macOS 10.15 compatible)
 
 struct VisualEffect: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
@@ -19,7 +21,7 @@ struct GlassSwitch: ToggleStyle {
         Button(action: { configuration.isOn.toggle() }) {
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                 Capsule()
-                    .fill(configuration.isOn ? Color.blue : Color.gray.opacity(0.4))
+                    .fill(configuration.isOn ? Color.primary.opacity(0.55) : Color.primary.opacity(0.18))
                     .frame(width: 40, height: 22)
                 Circle()
                     .fill(Color.white)
@@ -37,7 +39,7 @@ extension View {
     }
 }
 
-// MARK: - Raccourci clavier
+// MARK: - Keyboard shortcut
 
 struct Shortcut: Equatable {
     var keyCode: UInt16
@@ -49,7 +51,7 @@ struct Shortcut: Equatable {
     private static let names: [UInt16: String] = [
         122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
         98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
-        49: "Espace", 36: "↩", 48: "⇥", 51: "⌫",
+        49: "Space", 36: "↩", 48: "⇥", 51: "⌫",
         123: "←", 124: "→", 125: "↓", 126: "↑"
     ]
 
@@ -74,7 +76,7 @@ struct Shortcut: Equatable {
 
 enum ShortcutTarget { case start, stop }
 
-// MARK: - Logique
+// MARK: - Logic
 
 final class Clicker: ObservableObject {
     @Published var intervalMs = "100"
@@ -93,7 +95,7 @@ final class Clicker: ObservableObject {
 
     @Published var running = false
     @Published var done = 0
-    @Published var status = "Prêt"
+    @Published var status = "Ready"
 
     private var timer: Timer?
     private var countdownTimer: Timer?
@@ -104,11 +106,11 @@ final class Clicker: ObservableObject {
     func requestAccessIfNeeded() {
         let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         if !AXIsProcessTrustedWithOptions(opts) {
-            status = "Autorisez l'app dans Réglages > Confidentialité > Accessibilité"
+            status = "Allow the app in Settings > Privacy > Accessibility"
         }
     }
 
-    // MARK: Moniteurs d'événements
+    // MARK: Event monitors
 
     func installMonitors() {
         if let g = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .leftMouseDown], handler: { [weak self] e in
@@ -128,13 +130,13 @@ final class Clicker: ObservableObject {
                 y = String(Int(p.y))
                 useFixedPoint = true
                 picking = false
-                status = "Position enregistrée"
+                status = "Position saved"
                 NSApp.activate(ignoringOtherApps: true)
             }
         case .keyDown:
             if picking && e.keyCode == 53 {
                 picking = false
-                status = "Sélection annulée"
+                status = "Selection cancelled"
                 return
             }
             handleShortcut(e)
@@ -165,7 +167,7 @@ final class Clicker: ObservableObject {
         return false
     }
 
-    // MARK: Clics
+    // MARK: Clicking
 
     func start() {
         guard !running else { return }
@@ -186,7 +188,7 @@ final class Clicker: ObservableObject {
                 CGWarpMouseCursorPosition(point)
                 CGAssociateMouseAndMouseCursorPosition(1)
             }
-            self.status = "En cours…"
+            self.status = "Running…"
             let t = Timer(timeInterval: interval, repeats: true) { [weak self] timer in
                 guard let self = self else { timer.invalidate(); return }
                 let p = fixed ? point : (CGEvent(source: nil)?.location ?? .zero)
@@ -196,7 +198,7 @@ final class Clicker: ObservableObject {
                     timer.invalidate()
                     self.timer = nil
                     self.running = false
-                    self.status = "Terminé"
+                    self.status = "Done"
                 }
             }
             RunLoop.main.add(t, forMode: .common)
@@ -204,7 +206,7 @@ final class Clicker: ObservableObject {
         }
 
         if remaining > 0 {
-            status = String(format: "Démarrage dans %.1f s", remaining)
+            status = String(format: "Starting in %.1f s", remaining)
             let c = Timer(timeInterval: 0.1, repeats: true) { [weak self] timer in
                 guard let self = self else { timer.invalidate(); return }
                 remaining -= 0.1
@@ -213,7 +215,7 @@ final class Clicker: ObservableObject {
                     self.countdownTimer = nil
                     begin()
                 } else {
-                    self.status = String(format: "Démarrage dans %.1f s", remaining)
+                    self.status = String(format: "Starting in %.1f s", remaining)
                 }
             }
             RunLoop.main.add(c, forMode: .common)
@@ -228,7 +230,7 @@ final class Clicker: ObservableObject {
         timer?.invalidate(); timer = nil
         countdownTimer?.invalidate(); countdownTimer = nil
         running = false
-        status = "Arrêté"
+        status = "Stopped"
     }
 
     private static func click(at p: CGPoint) {
@@ -240,7 +242,7 @@ final class Clicker: ObservableObject {
     }
 }
 
-// MARK: - Composants UI
+// MARK: - UI components
 
 struct GlassCard<Content: View>: View {
     let title: String
@@ -263,10 +265,7 @@ struct GlassCard<Content: View>: View {
         .background(VisualEffect().clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(gradient: Gradient(colors: [Color.white.opacity(0.45), Color.white.opacity(0.05)]),
-                                   startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
     }
@@ -320,44 +319,35 @@ struct ShortcutButton: View {
         let isRec = model.recording == target
         let sc = target == .start ? model.startKey : model.stopKey
         return Button(action: { model.recording = isRec ? nil : target }) {
-            Text(isRec ? "Appuyez sur une touche…" : sc.display)
+            Text(isRec ? "Press a key…" : sc.display)
                 .font(.system(size: 12.5, weight: .medium, design: .rounded))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .glassFill(isRec ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.14), 8)
+                .glassFill(isRec ? Color.white.opacity(0.30) : Color.black.opacity(0.14), 8)
         }
         .buttonStyle(PlainButtonStyle())
     }
 }
 
-// MARK: - Vue principale
+// MARK: - Main view
 
 struct ContentView: View {
     @EnvironmentObject var model: Clicker
 
     var body: some View {
-        ZStack {
-            // Taches de couleur pour faire ressortir l'effet verre
-            Circle().fill(Color.blue.opacity(0.35)).frame(width: 260, height: 260)
-                .blur(radius: 70).offset(x: -140, y: -230)
-            Circle().fill(Color.purple.opacity(0.30)).frame(width: 280, height: 280)
-                .blur(radius: 80).offset(x: 150, y: 40)
-            Circle().fill(Color.pink.opacity(0.22)).frame(width: 220, height: 220)
-                .blur(radius: 70).offset(x: -90, y: 260)
-
-            VStack(spacing: 12) {
-                header
-                rhythmCard
-                positionCard
-                shortcutsCard
-                Spacer(minLength: 0)
-                mainButton
-            }
-            .padding(.horizontal, 18)
-            .padding(.top, 34)
-            .padding(.bottom, 18)
+        VStack(spacing: 12) {
+            header
+            rhythmCard
+            positionCard
+            shortcutsCard
+            Spacer(minLength: 0)
+            mainButton
+            footer
         }
-        .frame(width: 400, height: 640)
+        .padding(.horizontal, 18)
+        .padding(.top, 34)
+        .padding(.bottom, 14)
+        .frame(width: 400, height: 690)
     }
 
     var header: some View {
@@ -372,26 +362,26 @@ struct ContentView: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 0) {
                 Text("\(model.done)").font(.system(size: 22, weight: .semibold, design: .monospaced))
-                Text("clics").font(.system(size: 10.5)).foregroundColor(.secondary)
+                Text("clicks").font(.system(size: 10.5)).foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 4)
     }
 
     var rhythmCard: some View {
-        GlassCard(title: "Rythme") {
-            Row(label: "Intervalle") {
+        GlassCard(title: "Timing") {
+            Row(label: "Interval") {
                 NumField(text: $model.intervalMs)
                 Text("ms").font(.system(size: 12)).foregroundColor(.secondary)
             }
-            Row(label: "Nombre de clics") {
+            Row(label: "Click count") {
                 if !model.infinite {
                     NumField(text: $model.clickCount)
                 }
                 Toggle("", isOn: $model.infinite).toggleStyle(GlassSwitch())
                 Text("∞").font(.system(size: 15, weight: .medium))
             }
-            Row(label: "Délai avant départ") {
+            Row(label: "Start delay") {
                 NumField(text: $model.delaySec, decimal: true)
                 Text("s").font(.system(size: 12)).foregroundColor(.secondary)
             }
@@ -400,50 +390,61 @@ struct ContentView: View {
 
     var positionCard: some View {
         GlassCard(title: "Position") {
-            Row(label: "Position fixe") {
+            Row(label: "Fixed position") {
                 Toggle("", isOn: $model.useFixedPoint).toggleStyle(GlassSwitch())
             }
             if model.useFixedPoint {
                 Row(label: "X") { NumField(text: $model.x) }
                 Row(label: "Y") { NumField(text: $model.y) }
             } else {
-                Text("Clique à l'endroit actuel du curseur.")
+                Text("Clicks at the current cursor position.")
                     .font(.system(size: 12)).foregroundColor(.secondary)
             }
             Button(action: {
                 model.picking.toggle()
-                model.status = model.picking ? "Cliquez à l'endroit voulu (Échap pour annuler)" : "Prêt"
+                model.status = model.picking ? "Click where you want (Esc to cancel)" : "Ready"
             }) {
-                Text(model.picking ? "Cliquez n'importe où…" : "◎  Choisir en cliquant")
+                Text(model.picking ? "Click anywhere…" : "◎  Pick by clicking")
                     .font(.system(size: 12.5, weight: .medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .glassFill(model.picking ? Color.accentColor.opacity(0.35) : Color.white.opacity(0.14), 10)
+                    .glassFill(model.picking ? Color.white.opacity(0.30) : Color.white.opacity(0.14), 10)
             }
             .buttonStyle(PlainButtonStyle())
         }
     }
 
     var shortcutsCard: some View {
-        GlassCard(title: "Raccourcis") {
-            Row(label: "Démarrer") { ShortcutButton(target: .start) }
-            Row(label: "Arrêter") { ShortcutButton(target: .stop) }
+        GlassCard(title: "Shortcuts") {
+            Row(label: "Start") { ShortcutButton(target: .start) }
+            Row(label: "Stop") { ShortcutButton(target: .stop) }
         }
+    }
+
+    var footer: some View {
+        VStack(spacing: 2) {
+            Button(action: { NSWorkspace.shared.open(URL(string: "https://github.com/hollyenah/robot-clic")!) }) {
+                Text("github.com/hollyenah/robot-clic").underline()
+            }
+            .buttonStyle(PlainButtonStyle())
+            Text("By Hollyenah - Version : \(appVersion)")
+        }
+        .font(.system(size: 10.5))
+        .foregroundColor(.secondary)
     }
 
     var mainButton: some View {
         Button(action: { model.running ? model.stop() : model.start() }) {
             HStack(spacing: 8) {
                 Text(model.running ? "■" : "▶")
-                Text(model.running ? "Arrêter  \(model.stopKey.display)" : "Démarrer  \(model.startKey.display)")
+                Text(model.running ? "Stop  \(model.stopKey.display)" : "Start  \(model.startKey.display)")
             }
             .font(.system(size: 15, weight: .semibold, design: .rounded))
-            .foregroundColor(.white)
+            .foregroundColor(.primary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 13)
-            .glassFill(LinearGradient(gradient: Gradient(colors: model.running ? [Color.red, Color.orange] : [Color.blue, Color.purple]),
-                                      startPoint: .leading, endPoint: .trailing), 14)
-            .shadow(color: (model.running ? Color.red : Color.blue).opacity(0.4), radius: 10, x: 0, y: 4)
+            .glassFill(Color.white.opacity(model.running ? 0.30 : 0.16), 14)
+            .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 3)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -457,7 +458,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let blur = NSVisualEffectView()
-        blur.material = .hudWindow
+        blur.material = .underWindowBackground
         blur.blendingMode = .behindWindow
         blur.state = .active
 
@@ -471,7 +472,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             host.bottomAnchor.constraint(equalTo: blur.bottomAnchor)
         ])
 
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 640),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 690),
                           styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
