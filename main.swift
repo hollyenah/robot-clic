@@ -1,6 +1,36 @@
 import SwiftUI
 import AppKit
 
+struct VisualEffect: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .popover
+        v.blendingMode = .withinWindow
+        v.state = .active
+        return v
+    }
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {}
+}
+
+struct GlassSwitch: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                Capsule().fill(configuration.isOn ? Color.blue : Color.gray.opacity(0.4))
+                    .frame(width: 40, height: 22)
+                Circle().fill(Color.white).frame(width: 18, height: 18).padding(2)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+extension View {
+    func glassFill<S: ShapeStyle>(_ style: S, _ radius: CGFloat) -> some View {
+        background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(style))
+    }
+}
+
 // MARK: - Raccourci clavier
 
 struct Shortcut: Equatable {
@@ -40,7 +70,6 @@ enum ShortcutTarget { case start, stop }
 
 // MARK: - Logique
 
-@MainActor
 final class Clicker: ObservableObject {
     @Published var intervalMs = "100"
     @Published var clickCount = "100"
@@ -60,7 +89,8 @@ final class Clicker: ObservableObject {
     @Published var done = 0
     @Published var status = "Prêt"
 
-    private var task: Task<Void, Never>?
+    private var timer: Timer?
+    private var countdownTimer: Timer?
     private var monitors: [Any] = []
 
     // MARK: Permissions
@@ -76,12 +106,11 @@ final class Clicker: ObservableObject {
 
     func installMonitors() {
         if let g = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .leftMouseDown], handler: { [weak self] e in
-            MainActor.assumeIsolated { self?.globalEvent(e) }
+            self?.globalEvent(e)
         }) { monitors.append(g) }
 
         if let l = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] e in
-            let handled = MainActor.assumeIsolated { self?.localKey(e) ?? false }
-            return handled ? nil : e
+            (self?.localKey(e) ?? false) ? nil : e
         }) { monitors.append(l) }
     }
 
@@ -130,59 +159,65 @@ final class Clicker: ObservableObject {
     }
 
     // MARK: Clics
-
     func start() {
-        guard !running else { return }
-        guard AXIsProcessTrusted() else { requestAccessIfNeeded(); return }
+    guard !running else { return }
+    guard AXIsProcessTrusted() else { requestAccessIfNeeded(); return }
 
-        let interval = max(1, Int(intervalMs) ?? 100)
-        let total = infinite ? Int.max : max(1, Int(clickCount) ?? 1)
-        let delay = max(0, Double(delaySec.replacingOccurrences(of: ",", with: ".")) ?? 0)
-        let fixed = useFixedPoint
-        let point = CGPoint(x: Double(x) ?? 0, y: Double(y) ?? 0)
+    let interval = Double(max(1, Int(intervalMs) ?? 100)) / 1000
+    let total = infinite ? Int.max : max(1, Int(clickCount) ?? 1)
+    var remaining = max(0, Double(delaySec.replacingOccurrences(of: ",", with: ".")) ?? 0)
+    let fixed = useFixedPoint
+    let point = CGPoint(x: Double(x) ?? 0, y: Double(y) ?? 0)
 
-        running = true
-        done = 0
+    running = true
+    done = 0
 
-        task = Task { @MainActor [weak self] in
-            guard let self else { return }
-
-            var remaining = delay
-            while remaining > 0 {
-                self.status = String(format: "Démarrage dans %.1f s", remaining)
-                let step = min(0.1, remaining)
-                try? await Task.sleep(nanoseconds: UInt64(step * 1_000_000_000))
-                if Task.isCancelled { return }
-                remaining -= step
-            }
-
-            if fixed {
-                CGWarpMouseCursorPosition(point)
-                CGAssociateMouseAndMouseCursorPosition(1)
-            }
-
-            self.status = "En cours…"
-            var n = 0
-            while !Task.isCancelled && n < total {
-                let p = fixed ? point : (CGEvent(source: nil)?.location ?? .zero)
-                Self.click(at: p)
-                n += 1
-                self.done = n
-                try? await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000)
-            }
-
-            if !Task.isCancelled {
+    let begin = { [weak self] in
+        guard let self = self else { return }
+        if fixed {
+            CGWarpMouseCursorPosition(point)
+            CGAssociateMouseAndMouseCursorPosition(1)
+        }
+        self.status = "En cours…"
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
+            let p = fixed ? point : (CGEvent(source: nil)?.location ?? .zero)
+            Clicker.click(at: p)
+            self.done += 1
+            if self.done >= total {
+                timer.invalidate()
+                self.timer = nil
                 self.running = false
                 self.status = "Terminé"
-                self.task = nil
             }
         }
+        RunLoop.main.add(t, forMode: .common)
+        self.timer = t
+    }
+
+    if remaining > 0 {
+        let c = Timer(timeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
+            remaining -= 0.1
+            if remaining <= 0 {
+                timer.invalidate()
+                self.countdownTimer = nil
+                begin()
+            } else {
+                self.status = String(format: "Démarrage dans %.1f s", remaining)
+            }
+        }
+        RunLoop.main.add(c, forMode: .common)
+        countdownTimer = c
+    } else {
+        begin()
+    }
     }
 
     func stop() {
         guard running else { return }
-        task?.cancel()
-        task = nil
+        timer?.invalidate(); timer = nil
+        countdownTimer?.invalidate(); countdownTimer = nil
         running = false
         status = "Arrêté"
     }
@@ -205,15 +240,14 @@ struct GlassCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(title.uppercased(), systemImage: icon)
+            Text(title.uppercased())
                 .font(.system(size: 10.5, weight: .semibold))
-                .tracking(0.6)
                 .foregroundStyle(.secondary)
             content
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(VisualEffect().clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
@@ -231,18 +265,17 @@ struct NumField: View {
     var width: CGFloat = 78
 
     var body: some View {
-        TextField("0", text: $text)
+        TextField("0", text: Binding(
+            get: { text },
+            set: { new in text = new.filter { $0.isNumber || (decimal && ($0 == "." || $0 == ",")) } }
+        ))
             .textFieldStyle(.plain)
             .multilineTextAlignment(.trailing)
             .font(.system(size: 13, design: .monospaced))
             .frame(width: width)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.black.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .onChange(of: text) { _, new in
-                let f = new.filter { $0.isNumber || (decimal && ($0 == "." || $0 == ",")) }
-                if f != new { text = f }
-            }
+            .glassFill(Color.black.opacity(0.14), 8)
     }
 }
 
@@ -272,8 +305,7 @@ struct ShortcutButton: View {
                 .font(.system(size: 12.5, weight: .medium, design: .rounded))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isRec ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.14),
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .glassFill(isRec ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.14), 8)
         }
         .buttonStyle(.plain)
     }
@@ -362,13 +394,11 @@ struct ContentView: View {
                 model.picking.toggle()
                 model.status = model.picking ? "Cliquez à l'endroit voulu (Échap pour annuler)" : "Prêt"
             } label: {
-                Label(model.picking ? "Cliquez n'importe où…" : "Choisir en cliquant",
-                      systemImage: "cursorarrow.click.2")
+                Text(model.picking ? "Cliquez n'importe où…" : "⌖  Choisir en cliquant")
                     .font(.system(size: 12.5, weight: .medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(model.picking ? Color.accentColor.opacity(0.35) : Color.white.opacity(0.14),
-                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .glassFill(model.picking ? Color.accentColor.opacity(0.35) : Color.white.opacity(0.14), 10)
             }
             .buttonStyle(.plain)
         }
@@ -386,17 +416,15 @@ struct ContentView: View {
             model.running ? model.stop() : model.start()
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: model.running ? "stop.fill" : "play.fill")
+                Text(model.running ? "■" : "▶")
                 Text(model.running ? "Arrêter  \(model.stopKey.display)" : "Démarrer  \(model.startKey.display)")
             }
             .font(.system(size: 15, weight: .semibold, design: .rounded))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 13)
-            .background(
-                LinearGradient(colors: model.running ? [.red, .orange] : [.blue, .purple],
-                               startPoint: .leading, endPoint: .trailing),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .glassFill(LinearGradient(colors: model.running ? [.red, .orange] : [.blue, .purple],
+                          startPoint: .leading, endPoint: .trailing), 14)
             .shadow(color: (model.running ? Color.red : Color.blue).opacity(0.4), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
@@ -405,7 +433,6 @@ struct ContentView: View {
 
 // MARK: - Application
 
-@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let model = Clicker()

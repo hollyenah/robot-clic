@@ -6,8 +6,9 @@ APP="Autoclicker.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
-swiftc -O main.swift -o "$APP/Contents/MacOS/Autoclicker" \
-  -target "$(uname -m)-apple-macos14.0"
+swiftc -O main.swift -o /tmp/ac_x86 -target x86_64-apple-macos10.15
+swiftc -O main.swift -o /tmp/ac_arm -target arm64-apple-macos11.0
+lipo -create /tmp/ac_x86 /tmp/ac_arm -output "$APP/Contents/MacOS/Autoclicker"
 
 cat > "$APP/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
