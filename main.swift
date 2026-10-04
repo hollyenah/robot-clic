@@ -341,7 +341,7 @@ struct ContentView: View {
     var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Autoclicker").font(.system(size: 22, weight: .bold, design: .rounded))
+                Text("Robot-Clic").font(.system(size: 22, weight: .bold, design: .rounded))
                 Text(model.status)
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
