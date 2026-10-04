@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.1"
+let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.2"
 
 // MARK: - Helpers (macOS 10.15 compatible)
 

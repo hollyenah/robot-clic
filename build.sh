@@ -10,7 +10,7 @@ echo "Compiling Intel (macOS 10.15+)…"
 swiftc -O main.swift -o /tmp/robotclic_x86 -target x86_64-apple-macos10.15
 
 echo "Compiling Apple Silicon (macOS 11+)…"
-swiftc -O main.swift -o /tmp/robotclic_arm -target arm64-apple-macos11.0.1
+swiftc -O main.swift -o /tmp/robotclic_arm -target arm64-apple-macos11.0.2
 
 lipo -create /tmp/robotclic_x86 /tmp/robotclic_arm -output "$APP/Contents/MacOS/Robot-clic"
 rm -f /tmp/robotclic_x86 /tmp/robotclic_arm
@@ -25,16 +25,16 @@ done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<'EOF'
-<?xml version="1.0.1" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0.1//EN" "http://www.apple.com/DTDs/PropertyList-1.0.1.dtd">
-<plist version="1.0.1">
+<?xml version="1.0.2" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0.2//EN" "http://www.apple.com/DTDs/PropertyList-1.0.2.dtd">
+<plist version="1.0.2">
 <dict>
   <key>CFBundleName</key><string>Robot-clic</string>
   <key>CFBundleIdentifier</key><string>com.local.robotclic</string>
   <key>CFBundleExecutable</key><string>Robot-clic</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleVersion</key><string>1.0.1</string>
-  <key>CFBundleShortVersionString</key><string>1.0.1</string>
+  <key>CFBundleVersion</key><string>1.0.2</string>
+  <key>CFBundleShortVersionString</key><string>1.0.2</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>10.15</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
