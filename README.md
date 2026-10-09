@@ -109,7 +109,5 @@ Released under the [GNU General Public License v3.0](LICENSE).
 ---
 
 <div align="center">
-
 [github.com/hollyenah/robot-clic](https://github.com/hollyenah/robot-clic) · By Hollyenah
-
 </div>
